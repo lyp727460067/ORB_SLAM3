@@ -58,7 +58,7 @@ public:
     queue<sensor_msgs::ImageConstPtr> img0Buf;
     std::mutex mBufMutex;
    
-    ORB_SLAM3::System* mpSLAM;
+    ORB_SLAM3::System* mpSLAM; 
     ImuGrabber *mpImuGb;
 
     const bool mbClahe;
@@ -95,8 +95,8 @@ int main(int argc, char **argv)
   ImageGrabber igb(&SLAM,&imugb,bEqual); // TODO
   
   // Maximum delay, 5 seconds
-  ros::Subscriber sub_imu = n.subscribe("/imu", 1000, &ImuGrabber::GrabImu, &imugb); 
-  ros::Subscriber sub_img0 = n.subscribe("/camera/image_raw", 100, &ImageGrabber::GrabImage,&igb);
+  ros::Subscriber sub_imu = n.subscribe("/camera/imu", 10, &ImuGrabber::GrabImu, &imugb); 
+  ros::Subscriber sub_img0 = n.subscribe("/camera/color/image_raw", 10, &ImageGrabber::GrabImage,&igb);
 
   std::thread sync_thread(&ImageGrabber::SyncWithImu,&igb);
 
@@ -107,6 +107,11 @@ int main(int argc, char **argv)
 
 void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr &img_msg)
 {
+  static int ratia = 0;
+  if(++ratia <3){
+    return ;
+  }
+  ratia = 0;
   mBufMutex.lock();
   if (!img0Buf.empty())
     img0Buf.pop();
@@ -166,6 +171,7 @@ void ImageGrabber::SyncWithImu()
         {
           double t = mpImuGb->imuBuf.front()->header.stamp.toSec();
           cv::Point3f acc(mpImuGb->imuBuf.front()->linear_acceleration.x, mpImuGb->imuBuf.front()->linear_acceleration.y, mpImuGb->imuBuf.front()->linear_acceleration.z);
+          //cv::Point3f acc(mpImuGb->imuBuf.front()->linear_acceleration.z,-mpImuGb->imuBuf.front()->linear_acceleration.x, -mpImuGb->imuBuf.front()->linear_acceleration.y);
           cv::Point3f gyr(mpImuGb->imuBuf.front()->angular_velocity.x, mpImuGb->imuBuf.front()->angular_velocity.y, mpImuGb->imuBuf.front()->angular_velocity.z);
           vImuMeas.push_back(ORB_SLAM3::IMU::Point(acc,gyr,t));
           mpImuGb->imuBuf.pop();
@@ -174,7 +180,6 @@ void ImageGrabber::SyncWithImu()
       mpImuGb->mBufMutex.unlock();
       if(mbClahe)
         mClahe->apply(im,im);
-
       mpSLAM->TrackMonocular(im,tIm,vImuMeas);
     }
 

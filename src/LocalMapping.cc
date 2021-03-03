@@ -135,7 +135,7 @@ void LocalMapping::Run()
                             mTinit += mpCurrentKeyFrame->mTimeStamp - mpCurrentKeyFrame->mPrevKF->mTimeStamp;
                         if(!mpCurrentKeyFrame->GetMap()->GetIniertialBA2())
                         {
-                            if((mTinit<10.f) && (dist<0.02))
+                            if((mTinit<3.f) && (dist<0.02))
                             {
                                 cout << "Not enough motion for initializing. Reseting..." << endl;
                                 unique_lock<mutex> lock(mMutexReset);
@@ -1281,11 +1281,16 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
         }
 
         dirG = dirG/cv::norm(dirG);
+        std::cout<<"dir G"<<dirG<<std::endl;
         cv::Mat gI = (cv::Mat_<float>(3,1) << 0.0f, 0.0f, -1.0f);
         cv::Mat v = gI.cross(dirG);
+        
+        std::cout<<"v"<<v<<std::endl;
         const float nv = cv::norm(v);
         const float cosg = gI.dot(dirG);
+        
         const float ang = acos(cosg);
+        std::cout<<"ang"<<ang<<std::endl;
         cv::Mat vzg = v*ang/nv;
         cvRwg = IMU::ExpSO3(vzg);
         mRwg = Converter::toMatrix3d(cvRwg);
@@ -1305,10 +1310,10 @@ void LocalMapping::InitializeIMU(float priorG, float priorA, bool bFIBA)
     std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
     Optimizer::InertialOptimization(mpAtlas->GetCurrentMap(), mRwg, mScale, mbg, mba, mbMonocular, infoInertial, false, false, priorG, priorA);
     std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
-
-    /*cout << "scale after inertial-only optimization: " << mScale << endl;
+    
+    cout << "scale after inertial-only optimization: " << mScale << endl;
     cout << "bg after inertial-only optimization: " << mbg << endl;
-    cout << "ba after inertial-only optimization: " << mba << endl;*/
+    cout << "ba after inertial-only optimization: " << mba << endl;
 
 
     if (mScale<1e-1)
